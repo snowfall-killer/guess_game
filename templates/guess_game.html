@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Multiplayer Guessing Game</title>
+    <script src="{{ url_for('static', filename='socket.io.js') }}"></script>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <style>
+      #game-container {
+        display: flex;
+        flex-direction: column;
+      }
+
+      #game-info {
+        display: flex;
+        flex-direction: row;
+      }
+
+      #guesses-container {
+        flex: 1;
+        padding: 10px;
+        box-sizing: border-box;
+      }
+
+      #players-container {
+        flex: 1;
+        padding: 10px;
+        box-sizing: border-box;
+      }
+
+      #guesses-list {
+        max-height: 200px;
+        overflow-y: auto;
+      }
+
+      #player-list {
+        max-height: 200px;
+        overflow-y: auto;
+      }
+    </style>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const socket = io();
+        const nameInput = document.getElementById('name');
+        const joinBtn = document.getElementById('join');
+        const guessInput = document.getElementById('guess');
+        const guessBtn = document.getElementById('guess-btn');
+        const loginContainer = document.getElementById('loginContainer');
+        const gameContainer = document.getElementById('game-container');
+        const playerList = document.getElementById('player-list');
+        const guessesList = document.getElementById('guesses-list');
+
+        joinBtn.addEventListener('click', () => {
+          const name = nameInput.value;
+          socket.emit('join', { name });
+        });
+
+        guessBtn.addEventListener('click', () => {
+          const guess = parseInt(guessInput.value);
+          socket.emit('guess', { guess });
+        });
+
+        socket.on('player_joined', (data) => {
+          console.log("Player joined: ", data);
+          renderPlayerList(data.players);
+          renderGuessesList(data.guesses);
+          loginContainer.style.display = 'none';
+          gameContainer.style.display = 'flex';
+        });
+
+        socket.on('game_update', (data) => {
+          console.log("Game update: ", data);
+          renderPlayerList(data.players);
+          renderGuessesList(data.guesses);
+        });
+
+        socket.on('new_guess', (data) => {
+          console.log("New guess: ", data);
+          renderNewGuess(data);
+        });
+        
+        socket.on('new_round_update', (data) => {
+          console.log("New round update: ", data);
+          renderPlayerList(data.players);
+          guessesList.innerHTML = '';
+          guessInput.disabled = false;
+          guessBtn.disabled = false;
+        });
+
+        socket.on('correct_answer', (data) => {
+          console.log("Correct answer: ", data);
+          guessInput.disabled = true;
+          guessBtn.disabled = true;
+        });
+
+        socket.on('error', (data) => {
+          console.error(data.message);
+        });
+
+        socket.on('game_lost', (data) => {
+          console.log("Game lost: ", data);
+          if (data.player_id === socket.id) {
+            guessInput.disabled = true;
+            guessBtn.disabled = true;
+          }
+        });
+
+        function renderPlayerList(players) {
+          playerList.innerHTML = '';
+          for (const [playerId, player] of Object.entries(players)) {
+            playerList.innerHTML = `<li>${player.name} (Score: ${player.score}, Guesses: ${player.guesses})</li>` +  playerList.innerHTML;
+          }
+        }
+
+        function renderGuessesList(guesses) {
+          guessesList.innerHTML = '';
+          for (const guess of guesses) {
+            guessesList.innerHTML += `<li>${guess.player}: ${guess.guess} (${guess.hint})</li>`;
+          }
+        }
+
+        function renderNewGuess(guess) {
+          guessesList.innerHTML = `<li>${guess.player}: ${guess.guess} (${guess.hint})</li>` + guessesList.innerHTML;
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <h1>Multiplayer Guessing Game</h1>
+    
+    請猜介於 1 ~ 100 的整數: <br /><br />
+
+    <div id="loginContainer">
+      <label for="name">Name:</label>
+      <input type="text" id="name" placeholder="Enter your name">
+      <button id="join">Join Game</button>
+    </div>
+    
+    <div id="game-container" style="display: none;">
+      <div>
+        <label for="guess">Your Guess:</label>
+        <input type="number" id="guess">
+        <button id="guess-btn">Guess</button>
+      </div>
+
+      <div id="game-info">
+        <div id="guesses-container">
+          <h3>Guesses (新資料在最上方):</h3>
+          <ul id="guesses-list"></ul>
+        </div>
+
+        <div id="players-container">
+          <h3>Players (新資料在最上方):</h3>
+          <ul id="player-list"></ul>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
