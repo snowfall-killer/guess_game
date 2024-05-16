@@ -1,0 +1,9 @@
+請修改 Python 與 html 並使用所提供的俄羅斯方塊程式架構, 讓兩人可以同場在不同的俄羅斯方塊中進行比賽
+
+Multiplayer Tetris game
+
+https://github.com/42plamusse/Red-Tetris
+
+https://github.com/kmeranda/tetris_wars
+
+https://github.com/xzys/tetris-multiplayer
