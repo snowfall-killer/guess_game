@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Multiplayer Tetris Game</title>
+  <script src="/static/socket.io.js"></script>
+  <style>
+    #game-container {
+      display: flex;
+      flex-direction: row;
+      justify-content: space-around;
+    }
+
+    .player-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    canvas {
+      border: 1px solid #000;
+    }
+  </style>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const socket = io();
+      const nameInput = document.getElementById('name');
+      const joinBtn = document.getElementById('join');
+      const loginContainer = document.getElementById('loginContainer');
+      const gameContainer = document.getElementById('game-container');
+
+      let player1Canvas, player2Canvas, player1Ctx, player2Ctx;
+      let playerId;
+
+      const canvasWidth = 300;
+      const canvasHeight = 600;
+      const gridSize = 30; // Each block is 30x30 pixels
+
+      joinBtn.addEventListener('click', () => {
+        const name = nameInput.value;
+        socket.emit('join', { name });
+      });
+
+      socket.on('player_joined', (data) => {
+        playerId = data.id;
+        loginContainer.style.display = 'none';
+        gameContainer.style.display = 'flex';
+
+        if (playerId === 1) {
+          player1Canvas = document.getElementById('player1-canvas');
+          player1Ctx = player1Canvas.getContext('2d');
+          startTetrisGame(player1Ctx);
+        } else if (playerId === 2) {
+          player2Canvas = document.getElementById('player2-canvas');
+          player2Ctx = player2Canvas.getContext('2d');
+          startTetrisGame(player2Ctx);
+        }
+      });
+
+      function startTetrisGame(ctx) {
+        // Initialize the Tetris game for the player
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      }
+
+      socket.on('game_update', (data) => {
+        if (playerId === 1) {
+          renderGame(player1Ctx, data.state1);
+        } else if (playerId === 2) {
+          renderGame(player2Ctx, data.state2);
+        }
+      });
+
+      function renderGame(ctx, state) {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+        // Draw the game grid
+        for (let row = 0; row < state.grid.length; row++) {
+          for (let col = 0; col < state.grid[row].length; col++) {
+            if (state.grid[row][col]) {
+              drawBlock(ctx, col, row, state.grid[row][col]);
+            }
+          }
+        }
+
+        // Draw the current piece
+        const piece = state.currentPiece;
+        for (let row = 0; row < piece.shape.length; row++) {
+          for (let col = 0; col < piece.shape[row].length; col++) {
+            if (piece.shape[row][col]) {
+              drawBlock(ctx, piece.x + col, piece.y + row, piece.color);
+            }
+          }
+        }
+      }
+
+      function drawBlock(ctx, x, y, color) {
+        ctx.fillStyle = color;
+        ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
+        ctx.strokeStyle = '#fff';
+        ctx.strokeRect(x * gridSize, y * gridSize, gridSize, gridSize);
+      }
+    });
+  </script>
+</head>
+<body>
+  <h1>Multiplayer Tetris Game</h1>
+  
+  <div id="loginContainer">
+    <label for="name">Name:</label>
+    <input type="text" id="name" placeholder="Enter your name">
+    <button id="join">Join Game</button>
+  </div>
+  
+  <div id="game-container" style="display: none;">
+    <div class="player-container">
+      <h2>Player 1</h2>
+      <canvas id="player1-canvas" width="300" height="600"></canvas>
+    </div>
+    <div class="player-container">
+      <h2>Player 2</h2>
+      <canvas id="player2-canvas" width="300" height="600"></canvas>
+    </div>
+  </div>
+</body>
+</html>
