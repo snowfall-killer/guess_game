@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Multiplayer Guessing Game</title>
+    <script type="text/python" src="{{ url_for('static', filename='brython.js') }}"></script>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <style>
+      #game-container {
+        display: flex;
+        flex-direction: column;
+      }
+
+      #game-info {
+        display: flex;
+        flex-direction: row;
+      }
+
+      #guesses-container {
+        flex: 1;
+        padding: 10px;
+        box-sizing: border-box;
+      }
+
+      #players-container {
+        flex: 1;
+        padding: 10px;
+        box-sizing: border-box;
+      }
+
+      #guesses-list {
+        max-height: 200px;
+        overflow-y: auto;
+      }
+
+      #player-list {
+        max-height: 200px;
+        overflow-y: auto;
+      }
+    </style>
+  </head>
+  <body onload="brython()">
+    <script type="text/python">
+from browser import socket, document, window
+
+socket = window.io()
+
+def render_player_list(players):
+    player_list = document["player-list"]
+    player_list.innerHTML = ""
+    for player_id, player in players.items():
+        player_list <= f"<li>{player['name']} (Score: {player['score']}, Guesses: {player['guesses']})</li>"
+
+def render_guesses_list(guesses):
+    guesses_list = document["guesses-list"]
+    guesses_list.innerHTML = ""
+    for guess in guesses:
+        guesses_list <= f"<li>{guess['player']}: {guess['guess']} ({guess['hint']})</li>"
+
+def render_new_guess(guess):
+    guesses_list = document["guesses-list"]
+    guesses_list.innerHTML = f"<li>{guess['player']}: {guess['guess']} ({guess['hint']})</li>" + guesses_list.innerHTML
+
+def join(ev):
+    name = document["name"].value
+    socket.emit("join", {"name": name})
+
+def make_guess(ev):
+    guess = int(document["guess"].value)
+    socket.emit("guess", {"guess": guess})
+
+socket.on("player_joined", lambda data: (
+    render_player_list(data["players"]),
+    render_guesses_list(data["guesses"]),
+    document["loginContainer"].style.display = "none",
+    document["game-container"].style.display = "flex"
+))
+
+socket.on("game_update", lambda data: (
+    render_player_list(data["players"]),
+    render_guesses_list(data["guesses"])
+))
+
+socket.on("new_guess", lambda data: render_new_guess(data))
+
+socket.on("new_round_update", lambda data: (
+    render_player_list(data["players"]),
+    document["guesses-list"].innerHTML = "",
+    document["guess"].disabled = False,
+    document["guess-btn"].disabled = False
+))
+
+socket.on("correct_answer", lambda data: (
+    document["guess"].disabled = True,
+    document["guess-btn"].disabled = True
+))
+
+socket.on("game_lost", lambda data: (
+    document["guess"].disabled = True,
+    document["guess-btn"].disabled = True
+) if data["player_id"] == socket.id else None)
+
+document["join"].bind("click", join)
+document["guess-btn"].bind("click", make_guess)
+    </script>
+
+    <h1>Multiplayer Guessing Game</h1>
+    
+    請猜介於 1 ~ 100 的整數: <br /><br />
+
+    <div id="loginContainer">
+      <label for="name">Name:</label>
+      <input type="text" id="name" placeholder="Enter your name">
+      <button id="join">Join Game</button>
+    </div>
+    
+    <div id="game-container" style="display: none;">
+      <div>
+        <label for="guess">Your Guess:</label>
+        <input type="number" id="guess">
+        <button id="guess-btn">Guess</button>
+      </div>
+
+      <div id="game-info">
+        <div id="guesses-container">
+          <h3>Guesses (新資料在最上方):</h3>
+          <ul id="guesses-list"></ul>
+        </div>
+
+        <div id="players-container">
+          <h3>Players (新資料在最上方):</h3>
+          <ul id="player-list"></ul>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
