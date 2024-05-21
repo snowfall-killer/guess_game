@@ -1,10 +1,12 @@
 # use pip install -U to ensure the compatible versions for these three modules
 # pip install -U flask flask-socketio eventlet
+# add hint delay for 1 sec
 import random
 from flask import Flask, render_template, request, send_from_directory
 from flask_socketio import SocketIO, emit
 import os
 from contextlib import contextmanager
+import time
 
 app = Flask(__name__)
 socketio = SocketIO(app, async_mode='eventlet')
@@ -20,6 +22,8 @@ game_data = {
     'guesses': [],
     'correct_answer': random.randint(1, 100)
 }
+
+last_guess_time = None  # 記錄上次傳送猜測提示的時間
 
 @contextmanager
 def app_context():
@@ -45,6 +49,7 @@ def on_join(data):
 
 @socketio.on('guess')
 def on_guess(data):
+    global last_guess_time
     player_id = request.sid
     guess = data['guess']
     player = game_data['players'][player_id]
@@ -56,10 +61,17 @@ def on_guess(data):
     player['guesses'] += 1
     hint = generate_hint(guess)
 
-    new_guess = {'player': player['name'], 'guess': guess, 'hint': hint}
-    game_data['guesses'].insert(0, new_guess)
+    current_time = time.time()
+    if last_guess_time is None or current_time - last_guess_time > 1:  # 如果距離上次傳送超過1秒
+        new_guess = {'player': player['name'], 'guess': guess, 'hint': hint}
+        game_data['guesses'].insert(0, new_guess)
+        emit('new_guess', new_guess, broadcast=True)
+        last_guess_time = current_time
+    else:
+        # 延遲傳送 (在1秒後重新調用該函式)
+        delay = 1 - (current_time - last_guess_time)
+        socketio.start_background_task(target=lambda: socketio.sleep(delay) and on_guess(data))
 
-    emit('new_guess', new_guess, broadcast=True)
     print(f"Guess received: {player['name']} guessed {guess}, hint: {hint}")
 
     if guess == game_data['correct_answer']:
@@ -86,4 +98,4 @@ def start_new_round():
     print("New round started")
 
 if __name__ == '__main__':
-    socketio.run(app, host='::1', port=5000, debug=True)
+    socketio.run(app, host='140.130.17.229', port=88, debug=True)
