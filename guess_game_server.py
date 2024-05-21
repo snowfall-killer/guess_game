@@ -1,6 +1,5 @@
 # use pip install -U to ensure the compatible versions for these three modules
 # pip install -U flask flask-socketio eventlet
-# try to add computer as a user
 import random  # 導入 random 模組，用於生成隨機數
 from flask import Flask, render_template, request, send_from_directory  # 導入 Flask 相關模組，用於建立網頁應用程式
 from flask_socketio import SocketIO, emit  # 導入 SocketIO 相關模組，用於建立即時通訊
@@ -11,7 +10,8 @@ import time  # 導入 time 模組，用於處理時間
 app = Flask(__name__)  # 建立 Flask 應用程式
 socketio = SocketIO(app, async_mode='eventlet')  # 建立 SocketIO 物件，使用 eventlet 作為非同步模式
 
-MAX_GUESSES = 10  # 設定每個玩家最多可以猜測的次數
+# 為了配合電腦隨機猜測, 將最高猜測次數調為 20
+MAX_GUESSES = 20  # 設定每個玩家最多可以猜測的次數
 
 # 啟用 Eventlet
 import eventlet  # 導入 eventlet 模組
@@ -24,7 +24,10 @@ game_data = {  # 建立 game_data 字典，用於儲存遊戲資料
 }
 
 last_guess_time = None  # 記錄上次傳送猜測提示的時間，初始值為 None
-computer_timer = None  # 電腦玩家的計時器，初始值為 None
+
+# 電腦玩家的猜測範圍，初始值為 1 到 100
+min_value = 1
+max_value = 100
 
 @contextmanager  # 使用 contextmanager 裝飾器，將 app_context 函數變成一個上下文管理器
 def app_context():
@@ -54,10 +57,10 @@ def on_join(data):
     emit('player_joined', {'players': game_data['players'], 'guesses': game_data['guesses']}, broadcast=True)  # 發送 'player_joined' 事件給所有客戶端，更新玩家列表和猜測列表
     print(f"Player joined: {player_name}")  # 在伺服器端打印玩家加入訊息
 
-    # 如果是第一個玩家加入，加入電腦玩家
+    # 如果是第一個玩家加入，加入電腦玩家並讓電腦玩家立即猜測一次
     if len(game_data['players']) == 1:  # 如果當前只有一個玩家
         computer_join()  # 加入電腦玩家
-        start_computer_timer()  # 立即啟動電腦玩家
+        computer_guess() # 讓電腦玩家立即猜測一次
 
 @socketio.on('guess')  # 使用 socketio.on 裝飾器，當收到 'guess' 事件時，執行 on_guess 函數
 def on_guess(data):
@@ -89,8 +92,13 @@ def on_guess(data):
         player['score'] += 1  # 增加玩家得分
         emit('correct_answer', {'player_name': player['name'], 'correct_answer': guess}, broadcast=True)  # 發送 'correct_answer' 事件給所有客戶端，宣布獲勝者
         start_new_round()  # 開始新一輪遊戲
-    else:  # 如果玩家沒有猜中
-        emit('game_update', {'players': game_data['players'], 'guesses': game_data['guesses']}, broadcast=True)  # 發送 'game_update' 事件給所有客戶端，更新玩家列表和猜測列表
+        return  # 結束函數執行
+
+    emit('game_update', {'players': game_data['players'], 'guesses': game_data['guesses']}, broadcast=True)  # 發送 'game_update' 事件給所有客戶端，更新玩家列表和猜測列表
+    
+    # 在使用者猜測後，讓電腦玩家也猜測一次
+    if player_id != 'computer': # 檢查是否為電腦玩家自己猜的
+        computer_guess() # 呼叫電腦玩家猜測邏輯
 
 def generate_hint(guess):  # 根據玩家的猜測生成提示
     if guess < game_data['correct_answer']:  # 如果猜測的數字小於正確答案
@@ -99,32 +107,36 @@ def generate_hint(guess):  # 根據玩家的猜測生成提示
         return 'Too high'  # 返回 'Too high' 提示
     return 'Correct!'  # 如果猜測的數字等於正確答案，返回 'Correct!' 提示
 
+      
 def start_new_round():  # 開始新一輪遊戲
-    global computer_timer  # 聲明 computer_timer 為全域變數
+    global min_value, max_value  # 聲明 min_value, max_value 為全域變數
     game_data['guesses'] = []  # 清空猜測列表
     game_data['correct_answer'] = random.randint(1, 100)  # 生成新的正確答案
+
+    # 重置所有玩家的猜測次數，**不包含**電腦玩家
+    for player_id in game_data['players']:  # 遍歷所有玩家
+        if player_id != 'computer':
+            game_data['players'][player_id]['guesses'] = 0  # 將玩家的猜測次數重置為 0
+
+    # 電腦玩家猜測次數從 1 起跳
+    computer_id = 'computer'  # 電腦玩家的 ID
+    game_data['players'][computer_id]['guesses'] = 1  # 將電腦玩家數據添加到 game_data['players'] 中
+
+    # 重置電腦玩家的猜測範圍
+    min_value = 1
+    max_value = 100
+
     emit('new_round_update', {'players': game_data['players'], 'guesses': game_data['guesses']}, broadcast=True)  # 發送 'new_round_update' 事件給所有客戶端，更新玩家列表和猜測列表
 
-    # 重置所有玩家的猜測次數，包括電腦玩家
-    for player_id in game_data['players']:  # 遍歷所有玩家
-        game_data['players'][player_id]['guesses'] = 0  # 將玩家的猜測次數重置為 0
-
     print("New round started")  # 在伺服器端打印新一輪遊戲開始訊息
-
-    # 停止上一輪的計時器
-    stop_computer_timer()  # 停止電腦玩家的計時器
-
-    # 啟動新一輪的電腦玩家計時器
-    start_computer_timer()  # 啟動電腦玩家的計時器
+    
 
 def computer_guess():  # 電腦玩家猜測邏輯
-    global computer_timer  # 聲明 computer_timer 為全域變數
+    global min_value, max_value  # 聲明 min_value, max_value 為全域變數
     computer_id = 'computer'  # 電腦玩家的 ID
     computer_player = game_data['players'][computer_id]  # 取得電腦玩家資料
 
     if computer_player['guesses'] < MAX_GUESSES:  # 如果電腦玩家的猜測次數小於 MAX_GUESSES
-        min_value = 1  # 初始化最小值
-        max_value = 100  # 初始化最大值
 
         # 根據所有玩家的猜測結果調整猜測範圍
         for guess_data in game_data['guesses']:  # 遍歷所有猜測記錄
@@ -146,30 +158,20 @@ def computer_guess():  # 電腦玩家猜測邏輯
         emit('new_guess', computer_guess_data, broadcast=True)  # 發送 'new_guess' 事件給所有客戶端，更新猜測列表
         computer_player['guesses'] += 1  # 增加電腦玩家的猜測次數
 
-
-    # 將 socketio.start_background_task 移到 if 條件語句的外部
-    socketio.start_background_task(target=computer_guess, delay=2)  # 延遲 2 秒後再次呼叫 computer_guess 函數
-
-    # 移除 stop_computer_timer() 
+        # 如果電腦猜中，開始新一輪遊戲
+        if guess == game_data['correct_answer']:
+            computer_player['score'] += 1
+            emit('correct_answer', {'player_name': computer_player['name'], 'correct_answer': guess}, broadcast=True)  # 發送 'correct_answer' 事件給所有客戶端，宣布獲勝者
+            start_new_round() 
 
 def computer_join():  # 加入電腦玩家
     computer_id = 'computer'  # 電腦玩家的 ID
-    game_data['players'][computer_id] = {'name': 'computer', 'score': 0, 'guesses': 0}  # 將電腦玩家數據添加到 game_data['players'] 中
+    # computer 加入後隨即猜第一次, 因此 guesses 從 1 起跳
+    game_data['players'][computer_id] = {'name': 'computer', 'score': 0, 'guesses': 1}  # 將電腦玩家數據添加到 game_data['players'] 中
     emit('player_joined', {'players': game_data['players'], 'guesses': game_data['guesses']}, broadcast=True)  # 發送 'player_joined' 事件給所有客戶端，更新玩家列表和猜測列表
     print(f"Player joined: computer")  # 在伺服器端打印電腦玩家加入訊息
 
-def start_computer_timer():  # 啟動電腦玩家的計時器
-    global computer_timer  # 聲明 computer_timer 為全域變數
-    # 移除立即執行 computer_guess() 的程式碼
-
-    # 安排電腦玩家的第一次猜測
-    computer_timer = socketio.start_background_task(target=computer_guess, delay=2)  # 延遲 2 秒後呼叫 computer_guess 函數
-
-def stop_computer_timer():  # 停止電腦玩家的計時器
-    global computer_timer  # 聲明 computer_timer 為全域變數
-    if computer_timer is not None:  # 如果計時器存在
-        computer_timer.cancel()  # 取消計時器
-        computer_timer = None  # 將計時器設定為 None
+# 移除 threading 相關函數
 
 if __name__ == '__main__':  # 如果程式是直接執行的
     socketio.run(app, host='140.130.17.229', port=88, debug=True)  # 執行 Flask 應用程式，監聽 140.130.17.229:88 位址，開啟除錯模式
