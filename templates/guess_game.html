@@ -2,8 +2,8 @@
 <html>
   <head>
     <title>Multiplayer Guessing Game</title>
-    <script src="{{ url_for('static', filename='socket.io.js') }}"></script>
-    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <script src="{{ url_for('static', filename='socket.io.js') }}"></script> <! -- 引入 socket.io 函式庫 -->
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon"> <! -- 設定網頁圖示 -->
     <style>
       #game-container {
         display: flex;
@@ -38,88 +38,95 @@
       }
     </style>
     <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        const socket = io();
-        const nameInput = document.getElementById('name');
-        const joinBtn = document.getElementById('join');
-        const guessInput = document.getElementById('guess');
-        const guessBtn = document.getElementById('guess-btn');
-        const loginContainer = document.getElementById('loginContainer');
-        const gameContainer = document.getElementById('game-container');
-        const playerList = document.getElementById('player-list');
-        const guessesList = document.getElementById('guesses-list');
+      document.addEventListener('DOMContentLoaded', function() {  // 當網頁載入完成後執行以下程式碼
+        const socket = io();  // 建立 socket.io 連線
+        // 不再需要 computerSocket
+        const nameInput = document.getElementById('name');  // 取得名稱輸入框元素
+        const joinBtn = document.getElementById('join');  // 取得加入遊戲按鈕元素
+        const guessInput = document.getElementById('guess');  // 取得猜測數字輸入框元素
+        const guessBtn = document.getElementById('guess-btn');  // 取得猜測按鈕元素
+        const loginContainer = document.getElementById('loginContainer');  // 取得登入區塊元素
+        const gameContainer = document.getElementById('game-container');  // 取得遊戲區塊元素
+        const playerList = document.getElementById('player-list');  // 取得玩家列表元素
+        const guessesList = document.getElementById('guesses-list');  // 取得猜測列表元素
 
-        joinBtn.addEventListener('click', () => {
-          const name = nameInput.value;
-          socket.emit('join', { name });
+        joinBtn.addEventListener('click', () => {  // 為加入遊戲按鈕添加點擊事件監聽器
+          const name = nameInput.value;  // 取得玩家輸入的名稱
+          // 檢查用户名是否為 "computer"
+          if (name.toLowerCase() === 'computer') {  // 如果玩家輸入的名稱是 "computer" (不區分大小寫)
+            alert('用戶名不能為 "computer"！');  // 顯示警告訊息
+            return;  // 停止執行
+          }
+          socket.emit('join', { name });  // 發送 'join' 事件給伺服器，並傳遞玩家名稱
         });
 
-        guessBtn.addEventListener('click', () => {
-          const guess = parseInt(guessInput.value);
-          socket.emit('guess', { guess });
+        guessBtn.addEventListener('click', () => {  // 為猜測按鈕添加點擊事件監聽器
+          const guess = parseInt(guessInput.value);  // 取得玩家輸入的猜測數字，並轉換為整數
+          socket.emit('guess', { guess });  // 發送 'guess' 事件給伺服器，並傳遞猜測數字
         });
 
-        socket.on('player_joined', (data) => {
-          console.log("Player joined: ", data);
-          renderPlayerList(data.players);
-          renderGuessesList(data.guesses);
-          loginContainer.style.display = 'none';
-          gameContainer.style.display = 'flex';
+        socket.on('player_joined', (data) => {  // 監聽 'player_joined' 事件，當有玩家加入時執行以下程式碼
+          console.log("Player joined: ", data);  // 在瀏覽器控制台打印玩家加入訊息
+          renderPlayerList(data.players);  // 重新渲染玩家列表
+          renderGuessesList(data.guesses);  // 重新渲染猜測列表
+          loginContainer.style.display = 'none';  // 隱藏登入區塊
+          gameContainer.style.display = 'flex';  // 顯示遊戲區塊
         });
 
-        socket.on('game_update', (data) => {
-          console.log("Game update: ", data);
-          renderPlayerList(data.players);
-          renderGuessesList(data.guesses);
+        socket.on('game_update', (data) => {  // 監聽 'game_update' 事件，當遊戲資料更新時執行以下程式碼
+          console.log("Game update: ", data);  // 在瀏覽器控制台打印遊戲更新訊息
+          renderPlayerList(data.players);  // 重新渲染玩家列表
+          renderGuessesList(data.guesses);  // 重新渲染猜測列表
         });
 
-        socket.on('new_guess', (data) => {
-          console.log("New guess: ", data);
-          renderNewGuess(data);
+        socket.on('new_guess', (data) => {  // 監聽 'new_guess' 事件，當有新的猜測時執行以下程式碼
+          console.log("New guess: ", data);  // 在瀏覽器控制台打印新的猜測訊息
+          renderNewGuess(data);  // 渲染新的猜測
         });
         
-        socket.on('new_round_update', (data) => {
-          console.log("New round update: ", data);
-          renderPlayerList(data.players);
-          guessesList.innerHTML = '';
-          guessInput.disabled = false;
-          guessBtn.disabled = false;
+        socket.on('new_round_update', (data) => {  // 監聽 'new_round_update' 事件，當新的回合開始時執行以下程式碼
+          console.log("New round update: ", data);  // 在瀏覽器控制台打印新的回合訊息
+          renderPlayerList(data.players);  // 重新渲染玩家列表
+          guessesList.innerHTML = '';  // 清空猜測列表
+          guessInput.disabled = false;  // 啟用猜測數字輸入框
+          guessBtn.disabled = false;  // 啟用猜測按鈕
         });
 
-        socket.on('correct_answer', (data) => {
-          console.log("Correct answer: ", data);
-          guessInput.disabled = true;
-          guessBtn.disabled = true;
+        socket.on('correct_answer', (data) => {  // 監聽 'correct_answer' 事件，當有玩家猜中時執行以下程式碼
+          console.log("Correct answer: ", data);  // 在瀏覽器控制台打印正確答案訊息
+          guessInput.disabled = true;  // 禁用猜測數字輸入框
+          guessBtn.disabled = true;  // 禁用猜測按鈕
         });
 
-        socket.on('error', (data) => {
-          console.error(data.message);
+        socket.on('error', (data) => {  // 監聽 'error' 事件，當發生錯誤時執行以下程式碼
+          console.error(data.message);  // 在瀏覽器控制台打印錯誤訊息
+          alert(data.message);  // 顯示錯誤訊息
         });
 
-        socket.on('game_lost', (data) => {
-          console.log("Game lost: ", data);
-          if (data.player_id === socket.id) {
-            guessInput.disabled = true;
-            guessBtn.disabled = true;
+        socket.on('game_lost', (data) => {  // 監聽 'game_lost' 事件，當玩家遊戲結束時執行以下程式碼
+          console.log("Game lost: ", data);  // 在瀏覽器控制台打印遊戲結束訊息
+          if (data.player_id === socket.id) {  // 如果當前玩家是遊戲結束的玩家
+            guessInput.disabled = true;  // 禁用猜測數字輸入框
+            guessBtn.disabled = true;  // 禁用猜測按鈕
           }
         });
 
-        function renderPlayerList(players) {
-          playerList.innerHTML = '';
-          for (const [playerId, player] of Object.entries(players)) {
-            playerList.innerHTML = `<li>${player.name} (Score: ${player.score}, Guesses: ${player.guesses})</li>` +  playerList.innerHTML;
-          }
-        }
-
-        function renderGuessesList(guesses) {
-          guessesList.innerHTML = '';
-          for (const guess of guesses) {
-            guessesList.innerHTML += `<li>${guess.player}: ${guess.guess} (${guess.hint})</li>`;
+        function renderPlayerList(players) {  // 渲染玩家列表
+          playerList.innerHTML = '';  // 清空玩家列表
+          for (const [playerId, player] of Object.entries(players)) {  // 遍歷所有玩家資料
+            playerList.innerHTML = `<li>${player.name} (Score: ${player.score}, Guesses: ${player.guesses})</li>` +  playerList.innerHTML;  // 將玩家資料添加到玩家列表中，新的玩家資料顯示在最上方
           }
         }
 
-        function renderNewGuess(guess) {
-          guessesList.innerHTML = `<li>${guess.player}: ${guess.guess} (${guess.hint})</li>` + guessesList.innerHTML;
+        function renderGuessesList(guesses) {  // 渲染猜測列表
+          guessesList.innerHTML = '';  // 清空猜測列表
+          for (const guess of guesses) {  // 遍歷所有猜測資料
+            guessesList.innerHTML += `<li>${guess.player}: ${guess.guess} (${guess.hint})</li>`;  // 將猜測資料添加到猜測列表中
+          }
+        }
+
+        function renderNewGuess(guess) {  // 渲染新的猜測
+          guessesList.innerHTML = `<li>${guess.player}: ${guess.guess} (${guess.hint})</li>` + guessesList.innerHTML;  // 將新的猜測資料添加到猜測列表中，新的猜測資料顯示在最上方
         }
       });
     </script>
@@ -129,28 +136,28 @@
     
     請猜介於 1 ~ 100 的整數: <br /><br />
 
-    <div id="loginContainer">
-      <label for="name">Name:</label>
-      <input type="text" id="name" placeholder="Enter your name" maxlength="10">
-      <button id="join">Join Game</button>
+    <div id="loginContainer">  <! -- 登入區塊 -->
+      <label for="name">Name:</label>  <! -- 名稱標籤 -->
+      <input type="text" id="name" placeholder="Enter your name" maxlength="10">  <! -- 名稱輸入框 -->
+      <button id="join">Join Game</button>  <! -- 加入遊戲按鈕 -->
     </div>
     
-    <div id="game-container" style="display: none;">
+    <div id="game-container" style="display: none;">  <! -- 遊戲區塊，初始隱藏 -->
       <div>
-        <label for="guess">Your Guess:</label>
-        <input type="number" id="guess">
-        <button id="guess-btn">Guess</button>
+        <label for="guess">Your Guess:</label>  <! -- 猜測數字標籤 -->
+        <input type="number" id="guess">  <! -- 猜測數字輸入框 -->
+        <button id="guess-btn">Guess</button>  <! -- 猜測按鈕 -->
       </div>
 
       <div id="game-info">
         <div id="guesses-container">
-          <h3>Guesses (新資料在最上方):</h3>
-          <ul id="guesses-list"></ul>
+          <h3>Guesses (新資料在最上方):</h3>  <! -- 猜測列表標題 -->
+          <ul id="guesses-list"></ul>  <! -- 猜測列表 -->
         </div>
 
         <div id="players-container">
-          <h3>Players (新資料在最上方):</h3>
-          <ul id="player-list"></ul>
+          <h3>Players (新資料在最上方):</h3>  <! -- 玩家列表標題 -->
+          <ul id="player-list"></ul>  <! -- 玩家列表 -->
         </div>
       </div>
     </div>
