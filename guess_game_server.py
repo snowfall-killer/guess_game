@@ -57,7 +57,7 @@ def on_join(data):
     emit('player_joined', {'players': game_data['players'], 'guesses': game_data['guesses']}, broadcast=True)  # 發送 'player_joined' 事件給所有客戶端，更新玩家列表和猜測列表
     print(f"Player joined: {player_name}")  # 在伺服器端打印玩家加入訊息
 
-    # 如果是第一個玩家加入，加入電腦玩家並讓電腦玩家立即猜測一次
+    # 只在遊戲開始時 (也就是第一個玩家加入時) 加入電腦玩家
     if len(game_data['players']) == 1:  # 如果當前只有一個玩家
         computer_join()  # 加入電腦玩家
         computer_guess() # 讓電腦玩家立即猜測一次
@@ -167,11 +167,11 @@ def computer_guess():  # 電腦玩家猜測邏輯
 def computer_join():  # 加入電腦玩家
     computer_id = 'computer'  # 電腦玩家的 ID
     # computer 加入後隨即猜第一次, 因此 guesses 從 1 起跳
-    game_data['players'][computer_id] = {'name': 'computer', 'score': 0, 'guesses': 1}  # 將電腦玩家數據添加到 game_data['players'] 中
-    emit('player_joined', {'players': game_data['players'], 'guesses': game_data['guesses']}, broadcast=True)  # 發送 'player_joined' 事件給所有客戶端，更新玩家列表和猜測列表
-    print(f"Player joined: computer")  # 在伺服器端打印電腦玩家加入訊息
-
-# 移除 threading 相關函數
+    # **修改**: 只在電腦玩家還不存在於 game_data['players'] 時才加入
+    if computer_id not in game_data['players']:
+        game_data['players'][computer_id] = {'name': 'computer', 'score': 0, 'guesses': 1}  # 將電腦玩家數據添加到 game_data['players'] 中
+        emit('player_joined', {'players': game_data['players'], 'guesses': game_data['guesses']}, broadcast=True)  # 發送 'player_joined' 事件給所有客戶端，更新玩家列表和猜測列表
+        print(f"Player joined: computer")  # 在伺服器端打印電腦玩家加入訊息
 
 if __name__ == '__main__':  # 如果程式是直接執行的
     socketio.run(app, host='140.130.17.229', port=88, debug=True)  # 執行 Flask 應用程式，監聽 140.130.17.229:88 位址，開啟除錯模式
