@@ -174,4 +174,4 @@ def computer_join():  # 加入電腦玩家
         print(f"Player joined: computer")  # 在伺服器端打印電腦玩家加入訊息
 
 if __name__ == '__main__':  # 如果程式是直接執行的
-    socketio.run(app, host='140.130.17.229', port=88, debug=True)  # 執行 Flask 應用程式，監聽 140.130.17.229:88 位址，開啟除錯模式
+    socketio.run(app, host='120.113.99.51', port=88, debug=True)  # 執行 Flask 應用程式，監聽 120.113.99.51:88 位址，開啟除錯模式
